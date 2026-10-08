@@ -13,6 +13,7 @@ Im Admin-Bereich kann ein Mitarbeiterkonto auf die Rolle **Manager** gestellt we
 ## Funktionen
 
 - Rechnungen mit mehreren Massagen und 30, 45, 60, 90 oder 120 Minuten
+- Rechnungsabschluss per Barzahlung oder Scan-Zahlung mit Zahlungsart im Bericht
 - anteiliger Stundenpreis und getrennte Mitarbeiter- und Geschäftsanteile
 - Abrechnung nach Datum und Mitarbeiterin
 - tägliche Geschäftsausgaben erfassen und vom Geschäftsanteil abziehen
