@@ -1,30 +1,34 @@
-# Harmonie · Massage-Kasse
+# Harmonie Zone Health Massage
 
-Eine kleine, mobil nutzbare Kassen-App als erste Version. Zum Start `index.html` in einem aktuellen Browser öffnen; es werden keine Pakete oder Installationen benötigt.
+Eine mobil nutzbare Kassen-App für Massageleistungen, Rechnungen, tägliche Ausgaben und Mitarbeiterabrechnungen.
 
-## Demo-Zugänge
+## Firebase-Verbindung
 
-- Admin: **Admin** / `admin123`
-- Mitarbeiterin: **Pim** / `pim123`
+Die App verwendet das Firebase-Projekt `harmonie-zone-health-massage` für die gemeinsame Synchronisierung über Firestore. Der Besitzer meldet jedes Gerät einmal mit seinem Firebase-E-Mail-Konto und Passwort an. Danach melden sich Manager und Mitarbeiter innerhalb der Kasse mit ihrem Namen und ihrem Kassenpasswort an.
 
-Das Admin-Demopasswort sollte nach dem ersten Login unter **Einstellungen → Admin-Passwort ändern** ersetzt werden.
-Im Admin-Bereich kann ein Mitarbeiterkonto auf die Rolle **Manager** gestellt werden. Manager können unter **Ausgaben** tägliche Geschäftsausgaben erfassen.
+Die Mitarbeiterkonten sind Zuordnungen innerhalb der App. Sie sind keine einzelnen Firebase-Konten und haben deshalb keine voneinander getrennten Datenbankrechte. Jedes verbundene Gerät kann die gemeinsamen Geschäftsdaten abrufen. Mitarbeiterpasswörter werden als PBKDF2-Hash gespeichert, nicht als Klartext.
 
-## Funktionen
+Vor dem ersten Upload fragt die App ausdrücklich nach, ob bestehende Browserdaten in die gemeinsame Datenbank übertragen werden sollen. Die statischen Dateien `index.html` und `firebase-store.js` müssen zusammen auf einem Webhost liegen. Zum lokalen Testen muss die App über einen lokalen Webserver oder HTTPS geöffnet werden, da Browser ES-Module nicht zuverlässig aus `file://` laden.
 
-- Rechnungen mit mehreren Massagen und 30, 45, 60, 90 oder 120 Minuten
-- Rechnungsabschluss per Barzahlung oder Scan-Zahlung mit Zahlungsart im Bericht
-- anteiliger Stundenpreis und getrennte Mitarbeiter- und Geschäftsanteile
-- Abrechnung nach Datum und Mitarbeiterin
-- tägliche Geschäftsausgaben erfassen und vom Geschäftsanteil abziehen
-- automatische Abmeldung nach fünf Minuten Inaktivität
-- Zugangsanfrage per vorbereitetem E-Mail-Entwurf an die Admin-Adresse
-- Massageleistungen und Mitarbeiterkonten verwalten
-- Speichern der Belege im Browser auf diesem Gerät
+## Firebase-Sicherheitsregeln
+
+Die Datei `firestore.rules` lässt nur das Besitzer-Firebase-Konto mit der fest eingetragenen UID zugreifen. Diese Regeln in Firebase Console → Firestore Database → Regeln einsetzen und veröffentlichen. Keine öffentlichen Regeln wie `allow read, write: if true` verwenden.
+
+Die Firebase-Client-Konfiguration in `firebase-store.js` ist für Web-Apps vorgesehen; sie enthält keinen privaten Service-Account-Schlüssel. Das App-Passwort für Mitarbeiter ist unabhängig vom Firebase-Passwort des Besitzers.
+
+## Kassenfunktionen
+
+- Massageleistungen mit frei einstellbarem Stundenpreis und Mitarbeiteranteil
+- flexible Dauer von 30, 45, 60, 90 und 120 Minuten
+- mehrere Leistungen pro Rechnung, anteilige Preisberechnung
+- Barzahlung oder Scan-Zahlung; Trinkgeld kann beim Scan erfasst werden
+- getrennte Kunden-, Mitarbeiter- und Geschäftsanteile
+- Tagesausgaben, Mitarbeiterabrechnung und Admin-Löschfunktion
+- Thai, Englisch und Deutsch; thailändische Datumsanzeige im buddhistischen Kalender
+- Live-Synchronisierung der Leistungen, Mitarbeitenden, Rechnungen und Ausgaben
 
 Beispiel: 45 Minuten Thai (150 ฿) plus 45 Minuten Öl (225 ฿) ergeben 375 ฿ Kundenumsatz.
 
-## Hinweis zur ersten Version
+## Kosten
 
-Die Daten liegen lokal im Browser. Browserdaten löschen, ein anderes Gerät oder ein anderer Browser bedeutet daher einen anderen Datenbestand. Die Anmeldung ist für eine lokale Demo gedacht; Passwörter werden nicht sicher auf einem Server verwaltet. Für den Geschäftsbetrieb mit mehreren Geräten sollte eine spätere Version einen geschützten Server und eine zentrale Datenbank verwenden.
-
+Das Projekt kann im Spark-Tarif genutzt werden, solange Nutzung und Ressourcen innerhalb der kostenlosen Quoten bleiben. Kein Blaze-Upgrade oder Abrechnungsprofil hinzufügen, wenn die Vorgabe weiterhin „kostenlos“ lautet.

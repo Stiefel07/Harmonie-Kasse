@@ -1,23 +1,23 @@
-# Harmonie: gemeinsamer Speicher ohne eigenen Server
+# Firebase-Kurzanleitung
 
-Für den Zugriff von mehreren Handys soll Firebase Authentication die Konten verwalten, Cloud Firestore Rechnungen, Ausgaben und Freigabeanfragen gemeinsam speichern und Firebase Hosting die App über HTTPS bereitstellen. Das ist ein verwalteter Cloud-Dienst, kein gemieteter eigener Server.
+Das Projekt `harmonie-zone-health-massage` ist bereits eingerichtet. Authentifizierung erfolgt nur über das Besitzerkonto. Mitarbeitende werden in der Kasse durch Namen und Kassenpasswörter unterschieden; sie brauchen keine eigenen E-Mail-Adressen oder Firebase-Accounts.
 
-## Kostenrahmen
+## Einmalige Schritte in Firebase
 
-- Nur den **Spark-Tarif** verwenden und kein Abrechnungs-/Zahlungsprofil verknüpfen oder auf **Blaze** umstellen.
-- Cloud Firestore hat im Spark-Tarif eine kostenlose Quote von 1 GiB gespeicherten Daten, 50.000 Lesevorgängen pro Tag und 20.000 Schreibvorgängen pro Tag. Wenn diese Grenzen erreicht werden, muss die Nutzung warten, bis das Kontingent wieder verfügbar ist; nicht auf einen kostenpflichtigen Tarif upgraden.
-- Keine Cloud Functions einrichten. Automatische E-Mail-Benachrichtigungen sind deshalb nicht Teil des kostenlosen Ablaufs. Freigabeanfragen sollen in der App als wartend erscheinen; die Kollegin kann zusätzlich weiterhin selbst einen E-Mail-Entwurf öffnen und absenden.
+1. Unter **Authentication → Sign-in method** E-Mail/Passwort für das Besitzerkonto aktivieren. Dieses Konto hat der Inhaber selbst angelegt.
+2. Unter **Firestore Database → Regeln** den Inhalt aus `firestore.rules` einsetzen und veröffentlichen. Die Regeln erlauben nur die UID des Besitzers.
+3. Die App mit `index.html` und `firebase-store.js` gemeinsam über HTTPS bereitstellen. Firebase Authentication kann lokale `file://`-Seiten für die Anmeldung blockieren; für Tests die GitHub-Pages-Adresse oder einen lokalen Webserver verwenden.
+4. Jedes Gerät einmal mit dem Firebase-Besitzerkonto anmelden. Anschließend erfolgt die normale Kassen-Anmeldung pro Mitarbeitername und App-Passwort.
+5. Beim ersten Gerät die Abfrage zum Übertragen vorhandener Browserdaten bestätigen. Die Daten werden dann zu Firebase kopiert und auf verbundenen Geräten synchronisiert.
 
-## Projekt anlegen
+## Datenzugriff
 
-1. In der [Firebase Console](https://console.firebase.google.com/) ein Projekt namens **Harmonie Massage** erstellen. Google Analytics kann ausgeschaltet bleiben.
-2. Eine **Web-App** zum Projekt hinzufügen und ihre Web-Konfiguration notieren (`apiKey`, `authDomain`, `projectId`, `appId`, `messagingSenderId`). Diese Werte identifizieren die Web-App; sie sind keine Service-Account-Schlüssel.
-3. Unter **Authentication → Sign-in method** die E-Mail/Passwort-Anmeldung aktivieren. Selbst erstellte Konten dürfen erst nach Freigabe Zugriff auf die Kassendaten erhalten.
-4. **Cloud Firestore** in **Production mode** erstellen und als Standort eine nahe Region wählen, zum Beispiel **Singapore (`asia-southeast1`)**. Der Standort lässt sich nach dem Anlegen nicht einfach wechseln.
-5. **Billing nicht aktivieren.** In den Firestore-Regeln niemals Testmodus oder `allow read, write: if true` verwenden.
+Alle Geräte, die mit dem Besitzerkonto verbunden sind, erhalten denselben Firestore-Zugriff. Mitarbeitername und Kassenpasswort dienen der Zuordnung und dem einfachen Anmeldebildschirm, bieten aber keine getrennten Datenbankberechtigungen. Ein Gerät, das mit dem Besitzerkonto verbunden ist, kann technisch alle Geschäftsdaten laden.
 
-Sobald das Projekt und die Web-Konfiguration vorliegen, kann die App mit Authentifizierung, Freigabeliste, rollenbasierten Datenbankregeln und Live-Synchronisierung verbunden werden.
+Mitarbeiterpasswörter werden clientseitig mit PBKDF2 gehasht. Das Firebase-Besitzerpasswort wird ausschließlich über Firebase Authentication geprüft und nicht in der App gespeichert.
 
-## Nicht teilen
+Die Web-Konfiguration in `firebase-store.js` enthält die übliche öffentliche Firebase-Web-App-Konfiguration, keinen privaten Admin-Schlüssel.
 
-Keine Passwörter, Bestätigungscodes, Service-Account-JSON-Dateien oder privaten Schlüssel weitergeben. Für die Verbindung der Web-App sind nur die oben genannten Web-Konfigurationswerte erforderlich.
+## Tarif
+
+Beim Firebase Spark-Tarif bleiben. Keine Abrechnung aktivieren oder auf Blaze umstellen, solange die App strikt kostenlos bleiben soll. Wenn kostenlose Quoten ausgeschöpft werden, kann die Synchronisierung pausieren.
