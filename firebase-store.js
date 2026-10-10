@@ -17,7 +17,7 @@ export const OWNER_UID = 'cJsuY9YJJLP7PLabwe2niJvPgGv2';
 const app = initializeApp(firebaseConfig);
 export const firebaseAuth = getAuth(app);
 const db = getFirestore(app);
-const names = ['services', 'staff', 'receipts', 'expenses'];
+const names = ['services', 'staff', 'receipts', 'expenses', 'auditLogs', 'dailyClosings'];
 
 export const observeAuth = callback => onAuthStateChanged(firebaseAuth, callback);
 export const signInOwner = (email, password) => signInWithEmailAndPassword(firebaseAuth, email, password);
@@ -28,7 +28,7 @@ function cloneData(data) {
 }
 
 export async function watchShopData(onData, onError) {
-  const result = { services: [], staff: [], receipts: [], expenses: [] };
+  const result = { services: [], staff: [], receipts: [], expenses: [], auditLogs: [], dailyClosings: [] };
   const ready = new Set();
   const unsubscribers = names.map(name => onSnapshot(collection(db, name), snapshot => {
     result[name] = snapshot.docs.map(item => ({ ...item.data(), id: item.id }));
