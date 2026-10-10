@@ -68,6 +68,25 @@ export async function saveShopData(next, previous) {
   return cloneData(next);
 }
 
+export async function restoreShopData(next) {
+  const current = await readShopData();
+  const ops = [];
+  for (const name of names) {
+    const restored = next[name] || [];
+    const restoredIds = new Set(restored.map(record => String(record.id)));
+    for (const record of restored) {
+      if (!record?.id) throw new Error('Backup record is missing an id.');
+      const clean = { ...record };
+      delete clean.password;
+      ops.push({ type: 'set', collection: name, id: String(record.id), data: clean });
+    }
+    for (const record of current[name] || []) {
+      if (!restoredIds.has(String(record.id))) ops.push({ type: 'delete', collection: name, id: String(record.id) });
+    }
+  }
+  await commitOps(ops);
+  return await readShopData();
+}
 export async function deleteShopRecord(name, id) {
   if (!names.includes(name)) throw new Error('Ungültiger Datenbereich.');
   await deleteDoc(doc(db, name, id));
