@@ -236,8 +236,8 @@ Object.assign(translations.th,{'Freelancer':'ฟรีแลนซ์','Freelanc
 ];
 function renderExpenses(){
 if(!['admin','manager'].includes(user.role)){tab='pos';render();return}
-const day=today();
-$('#main').innerHTML='<section class="card"><h2>Tägliche Ausgaben</h2><p class="sub">Geschäftsausgaben erfassen und den Geschäftsanteil damit verrechnen.</p><form id="expenseForm" class="formgrid"><div class="field"><label>Datum</label><input name="date" type="date" required value="'+day+'"></div><fieldset class="expense-category-picker wide"><legend>Ausgabenkategorien auswählen</legend><p class="sub">Für jede gewählte Kategorie den Betrag eingeben.</p><div class="expense-category-grid">'+EXPENSE_CATEGORIES.map(category=>'<label class="expense-category-option"><input type="checkbox" data-expense-category value="'+esc(category.id)+'"><span data-no-localize>'+esc(category.label)+'</span></label>').join('')+'</div></fieldset><div id="expenseAmountRows" class="expense-amount-list wide"></div><div class="wide"><button class="btn">Ausgabe speichern</button></div></form><div id="expenseDay" style="margin-top:22px"></div></section>';
+const savedExpenseDate=sessionStorage.getItem('sabaidee-expense-date'),day=/^\d{4}-\d{2}-\d{2}$/.test(savedExpenseDate||'')?savedExpenseDate:today();
+$('#main').innerHTML='<section class="card"><h2>Tägliche Ausgaben</h2><p class="sub">Geschäftsausgaben erfassen und den Geschäftsanteil damit verrechnen.</p><form id="expenseForm" class="formgrid"><div class="field"><label>Datum</label><div style="position:relative"><div aria-hidden="true" style="box-sizing:border-box;min-height:46px;padding:11px 12px;border:1px solid #d9ded9;border-radius:9px;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:10px"><span id="expenseDateDisplay">'+esc(dateLabel(day))+'</span><span aria-hidden="true">▦</span></div><input name="date" type="date" lang="'+appDateLocale()+'" aria-label="Ausgabedatum auswählen" required value="'+esc(day)+'" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer"></div></div><fieldset class="expense-category-picker wide"><legend>Ausgabenkategorien auswählen</legend><p class="sub">Für jede gewählte Kategorie den Betrag eingeben.</p><div class="expense-category-grid">'+EXPENSE_CATEGORIES.map(category=>'<label class="expense-category-option"><input type="checkbox" data-expense-category value="'+esc(category.id)+'"><span data-no-localize>'+esc(category.label)+'</span></label>').join('')+'</div></fieldset><div id="expenseAmountRows" class="expense-amount-list wide"></div><div class="wide"><button class="btn">Ausgabe speichern</button></div></form><div id="expenseDay" style="margin-top:22px"></div></section>';
 localize($('#main'));
 const form=$('#expenseForm'),draftAmounts=new Map();
 function renderAmountRows(){
@@ -254,11 +254,11 @@ form.onsubmit=e=>{
 e.preventDefault();
 const selected=[...form.querySelectorAll('[data-expense-category]:checked')];
 if(!selected.length){showToast('Bitte mindestens eine Kategorie auswählen.');return}
-const date=String(form.elements.date.value),createdAt=new Date().toISOString(),otherNote=String(form.elements.otherDescription?.value||'').trim();
+const date=String(form.elements.date.value),createdAt=new Date().toISOString(),otherNote=String(form.elements.otherDescription?.value||'').trim();sessionStorage.setItem('sabaidee-expense-date',date);
 for(const checkbox of selected){const category=EXPENSE_CATEGORIES.find(item=>item.id===checkbox.value),amount=Math.round(Number(form.querySelector('[data-expense-amount="'+checkbox.value+'"]').value)*100)/100;if(!(amount>0)){showToast('Bitte für jede ausgewählte Kategorie einen Betrag eingeben.');return}let description=category.label;if(category.id==='other'&&otherNote)description+=' — '+otherNote;const expense={id:crypto.randomUUID(),date,amount,description,categoryId:category.id,createdAt,enteredAt:createdAt,staffId:user.id,staffName:user.name};data.expenses.push(expense);addAuditEvent('create','expense',expense.id,null,expense,description||category.label)}
 save();renderExpenses();showToast('Ausgaben gespeichert')
 };
-form.elements.date.onchange=updateExpenseDay;
+form.elements.date.onchange=()=>{sessionStorage.setItem('sabaidee-expense-date',form.elements.date.value);const display=$('#expenseDateDisplay');if(display)display.textContent=form.elements.date.value?dateLabel(form.elements.date.value):'';updateExpenseDay()};
 updateExpenseDay()
 }
 function updateExpenseDay(){
