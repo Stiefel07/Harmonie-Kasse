@@ -111,6 +111,7 @@ function pendingGroups() {
   }
   return groups.sort((a, b) => a.createdAt - b.createdAt || a.key.localeCompare(b.key));
 }
+export function hasPendingShopRecord(collection, id) { return pendingGroups().some(group => group.ops.some(op => op.collection === collection && op.id === id)); }
 export function hasPendingShopChanges() { return pendingGroups().length > 0; }
 export function getShopSyncStatus() {
   return { pending: pendingGroups().reduce((sum, group) => sum + group.ops.length, 0), syncing: !!syncing, offline: navigator.onLine === false, error: syncError };
