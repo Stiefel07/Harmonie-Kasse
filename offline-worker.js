@@ -1,5 +1,5 @@
 // Cache application code only. Financial records and authentication responses are never cached here.
-const CACHE = 'harmonie-offline-app-v1';
+const CACHE = 'harmonie-offline-app-v2';
 const scopeURL = new URL(self.registration.scope);
 function allowed(url) {
   return (url.origin === scopeURL.origin && [scopeURL.pathname, new URL('index.html', scopeURL).pathname, new URL('firebase-store.js', scopeURL).pathname].includes(url.pathname)) ||
@@ -35,7 +35,8 @@ self.addEventListener('fetch', event => {
       const stored = await cache.match(request); if (stored) return stored;
     }
     try {
-      const response = await fetch(request);
+      // Revalidate app code online; keep the offline fallback and local records intact.
+      const response = await fetch(request, url.origin === scopeURL.origin ? { cache: 'no-cache' } : undefined);
       if (response.ok) await cache.put(request, response.clone());
       return response;
     } catch (error) {
