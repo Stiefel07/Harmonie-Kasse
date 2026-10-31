@@ -221,6 +221,38 @@ function updateSyncStatus(){
  const state=getShopSyncStatus(),text=(de,en,th)=>lang==='th'?th:lang==='en'?en:de;
  let message=state.error==='local-storage'?text('Nicht gespeichert! Gerätespeicher voll – App nicht schließen.','Not saved! Device storage is full – keep the app open.','บันทึกไม่สำเร็จ! พื้นที่อุปกรณ์เต็ม กรุณาอย่าปิดแอป'):state.error==='sync-conflict'?text('Änderungskonflikt – Einträge bleiben lokal gesichert. Bitte Admin prüfen lassen.','Conflicting changes – entries remain saved locally. Ask the admin to review.','ข้อมูลมีการแก้ไขขัดแย้งกัน รายการยังเก็บไว้ในอุปกรณ์ กรุณาให้ผู้ดูแลตรวจสอบ'):state.offline?text('Offline – Einträge werden lokal gespeichert.','Offline – entries are saved on this device.','ออฟไลน์ – บันทึกรายการไว้ในอุปกรณ์นี้'):state.syncing?text('Übertragung läuft … App bitte geöffnet lassen.','Syncing … please keep the app open.','กำลังส่งข้อมูล … กรุณาเปิดแอปไว้ก่อนนะคะ'):state.pending?text('Lokal gespeichert – Übertragung steht noch aus.','Saved locally – waiting to sync.','บันทึกในอุปกรณ์แล้ว – ยังรอส่งข้อมูล'):cloudInitialLoaded?text('Alles synchronisiert','Everything is synced','ส่งข้อมูลครบแล้ว'):text('Verbindung wird geprüft …','Checking connection …','กำลังตรวจสอบการเชื่อมต่อ …');
  element.textContent=message+(state.pending?' ('+state.pending+')':'')+(offlineShellReady?' · '+text('Offline-Start bereit','Offline start ready','พร้อมเปิดใช้งานออฟไลน์'):'');element.dataset.state=state.error?'error':state.offline||state.pending?'pending':'ok';
+ if(state.error==='sync-conflict'&&user?.role==='admin'){const button=document.createElement('button');button.type='button';button.className='btn secondary small';button.style.cssText='display:block;margin-top:10px';button.textContent=text('Diagnose herunterladen','Download diagnostics','ดาวน์โหลดข้อมูลตรวจสอบ');button.addEventListener('click',()=>downloadSyncDiagnosis(button));element.append(button)}
+}
+
+// Read-only conflict report. No queue entries or business records are changed.
+function redactSyncDiagnosis(value){
+ if(Array.isArray(value))return value.map(redactSyncDiagnosis);
+ if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).filter(([key])=>!/password|token|secret|credential/i.test(key)).map(([key,item])=>[key,redactSyncDiagnosis(item)]));
+ return value;
+}
+async function downloadSyncDiagnosis(button){
+ if(user?.role!=='admin')return;
+ button.disabled=true;
+ const label=button.textContent;button.textContent=lang==='de'?'Diagnose wird erstellt …':lang==='th'?'กำลังเตรียมข้อมูล …':'Preparing diagnostics …';
+ try{
+  const prefix='harmonie-outbox-v1:'+OWNER_UID+':',groups=[];
+  for(let i=0;i<localStorage.length;i++){
+   const key=localStorage.key(i);if(!key?.startsWith(prefix))continue;
+   try{groups.push({key,...JSON.parse(localStorage.getItem(key))})}catch(error){groups.push({key,error:'Invalid queue JSON'})}
+  }
+  groups.sort((a,b)=>(a.createdAt||0)-(b.createdAt||0)||a.key.localeCompare(b.key));
+  const relevant=new Map();
+  for(const group of groups)for(const op of group.ops||[]){if(!relevant.has(op.collection))relevant.set(op.collection,new Set());relevant.get(op.collection).add(String(op.id))}
+  const selectRecords=snapshot=>Object.fromEntries([...relevant].map(([name,ids])=>[name,(snapshot[name]||[]).filter(record=>ids.has(String(record.id)))]));
+  const report={format:'harmonie-sync-diagnosis-v1',createdAt:new Date().toISOString(),status:getShopSyncStatus(),pendingGroups:groups,localRecords:selectRecords(data)};
+  let timer;
+  try{report.serverRecords=selectRecords(await Promise.race([readShopData(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Server read timed out')),15000)})]));}
+  catch(error){report.serverReadError={code:error.code||null,message:String(error.message||error)}}
+  finally{clearTimeout(timer)}
+  report.queueKeysStillPresent=groups.filter(group=>localStorage.getItem(group.key)!==null).map(group=>group.key);
+  downloadBackupPayload(redactSyncDiagnosis(report),'Sync-Diagnose');
+ }catch(error){console.error('Diagnose konnte nicht erstellt werden',error);showToast(lang==='de'?'Diagnose konnte nicht erstellt werden.':lang==='th'?'ไม่สามารถสร้างข้อมูลตรวจสอบได้':'Could not prepare diagnostics.');}
+ finally{button.disabled=false;button.textContent=label}
 }
 function queueCloudSync(){
  if(!cloudReady||localSaveBlocked)return;clearTimeout(syncRetryTimer);
