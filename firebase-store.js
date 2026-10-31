@@ -152,6 +152,17 @@ function applyPatch(remote, op, checkConflict) {
   }
   return result;
 }
+function replayHistory(remote, history, checkConflict) {
+  // A previous transaction may have succeeded before this browser closed.
+  // Resume after the latest exact state already present on the server.
+  let start = 0;
+  for (let i = 0; i < history.length; i++) {
+    if (canonical(remote) === canonical(history[i].after)) start = i + 1;
+  }
+  let result = copy(remote);
+  for (const op of history.slice(start)) result = applyPatch(result, op, checkConflict);
+  return result;
+}
 export function mergePendingShopData(snapshot) {
   const result = copy(snapshot);
   for (const name of syncNames) result[name] = result[name] || [];
@@ -168,25 +179,42 @@ export function flushPendingShopData() {
   if (navigator.onLine === false || firebaseAuth.currentUser?.uid !== OWNER_UID) return Promise.resolve(false);
   syncing = (async () => {
     syncError = null;
+    // Replay a complete queued history together, including already acknowledged
+    // intermediate states. Never overwrite a state absent from that history.
+    while (true) {
+    const groups = [];
+    let operationCount = 0;
     for (const group of pendingGroups()) {
       if (!localStorage.getItem(group.key)) continue;
-      // Keep an entire normal save atomic; reject oversize operations without losing them.
+      if (operationCount + group.ops.length > 400 && groups.length) break;
       if (group.ops.length > 400) { const error = new Error('Offline save too large'); error.code = 'sync-too-large'; throw error; }
+      groups.push(group); operationCount += group.ops.length;
+    }
+    if (!groups.length) break;
+    const histories = new Map();
+    for (const group of groups) for (const op of group.ops) {
+      const key = JSON.stringify([op.collection, op.id]);
+      if (!histories.has(key)) histories.set(key, []);
+      histories.get(key).push(op);
+    }
+    if (histories.size > 400) { const error = new Error('Offline save too large'); error.code = 'sync-too-large'; throw error; }
+    if (groups.length) {
       await runTransaction(db, async transaction => {
-        if (!localStorage.getItem(group.key)) return;
         const reads = [];
-        for (const op of group.ops) {
-          const ref = doc(db, op.collection, op.id), snapshot = await transaction.get(ref);
-          reads.push({ ref, op, remote: snapshot.exists() ? { ...snapshot.data(), id: snapshot.id } : null });
+        for (const history of histories.values()) {
+          const op = history[0], ref = doc(db, op.collection, op.id), snapshot = await transaction.get(ref);
+          reads.push({ ref, history, remote: snapshot.exists() ? { ...snapshot.data(), id: snapshot.id } : null });
         }
-        const changes = reads.map(item => ({ ...item, after: applyPatch(item.remote, item.op, true) }));
+        const changes = reads.map(item => ({ ...item, after: replayHistory(item.remote, item.history, true) }));
         for (const item of changes) {
           if (canonical(item.remote) === canonical(item.after)) continue;
           if (item.after) transaction.set(item.ref, item.after); else transaction.delete(item.ref);
         }
       });
-      localStorage.removeItem(group.key);
+      // Only remove the exact immutable saves included in this transaction.
+      for (const group of groups) localStorage.removeItem(group.key);
       announceSync();
+    }
     }
     return true;
   })().catch(error => { syncError = error.code || 'network'; throw error; }).finally(() => { syncing = null; announceSync(); });
