@@ -139,6 +139,15 @@ export function stageShopData(next, previous) {
 function applyPatch(remote, op, checkConflict) {
   const before = op.before, after = op.after;
   if (canonical(remote) === canonical(after)) return copy(remote);
+  // Two identical receipt cancellations may have different timestamps.
+  // Preserve the acknowledged server cancellation without masking other changes.
+  if (op.collection === 'receipts' && before && !before.voidedAt &&
+      after?.voidedAt && remote?.voidedAt) {
+    const remoteWithoutTime = copy(remote), afterWithoutTime = copy(after);
+    delete remoteWithoutTime.voidedAt;
+    delete afterWithoutTime.voidedAt;
+    if (canonical(remoteWithoutTime) === canonical(afterWithoutTime)) return copy(remote);
+  }
   const conflict = () => { const error = new Error('Concurrent change: ' + op.collection + '/' + op.id); error.code = 'sync-conflict'; throw error; };
   if (!before || !after || !remote) {
     if (checkConflict && canonical(remote) !== canonical(before)) conflict();
