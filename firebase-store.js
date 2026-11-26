@@ -143,10 +143,15 @@ function applyPatch(remote, op, checkConflict) {
   // Preserve the acknowledged server cancellation without masking other changes.
   if (op.collection === 'receipts' && before && !before.voidedAt &&
       after?.voidedAt && remote?.voidedAt) {
-    const remoteWithoutTime = copy(remote), afterWithoutTime = copy(after);
-    delete remoteWithoutTime.voidedAt;
-    delete afterWithoutTime.voidedAt;
-    if (canonical(remoteWithoutTime) === canonical(afterWithoutTime)) return copy(remote);
+    const remoteWithoutCancellationMeta = copy(remote), afterWithoutCancellationMeta = copy(after);
+    // The server may already contain the same cancellation from another device.
+    // Timestamp and free-text reason can differ; preserve the acknowledged
+    // server cancellation while allowing the queued audit event to synchronize.
+    delete remoteWithoutCancellationMeta.voidedAt;
+    delete afterWithoutCancellationMeta.voidedAt;
+    delete remoteWithoutCancellationMeta.voidReason;
+    delete afterWithoutCancellationMeta.voidReason;
+    if (canonical(remoteWithoutCancellationMeta) === canonical(afterWithoutCancellationMeta)) return copy(remote);
   }
   const conflict = () => { const error = new Error('Concurrent change: ' + op.collection + '/' + op.id); error.code = 'sync-conflict'; throw error; };
   if (!before || !after || !remote) {
